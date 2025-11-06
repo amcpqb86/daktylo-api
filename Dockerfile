@@ -1,4 +1,4 @@
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 ARG APP_ENV=prod
 ENV APP_ENV=${APP_ENV}
@@ -29,6 +29,8 @@ COPY . .
 
 # Prépare les permissions et installe les dépendances PHP
 RUN mkdir -p var
+
+RUN git config --global --add safe.directory /var/www/html
 
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
