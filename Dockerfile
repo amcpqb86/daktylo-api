@@ -34,18 +34,6 @@ RUN git config --global --add safe.directory /var/www/html
 
 RUN composer install --no-dev --optimize-autoloader --no-scripts
 
-RUN php bin/console assets:install public --symlink --relative
-
-ENV DEFAULT_URI=http://localhost
-
-RUN php bin/console cache:clear --env=prod
-
-RUN php bin/console cache:warmup --env=prod
-
-RUN chown -R www-data:www-data var vendor public \
-    && chmod -R 775 var
-
-# Port exposé
 EXPOSE 80
 
 # Commande de démarrage d'Apache

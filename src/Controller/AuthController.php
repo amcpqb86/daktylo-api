@@ -65,7 +65,7 @@ final class AuthController extends AbstractController
 
         $mailer->send(
             (new Email())
-                ->from('Layro <no-reply@layro.app>')
+                ->from('Daktylo <no-reply@daktylo.fr>')
                 ->to($email)
                 ->subject('Votre code de connexion')
                 ->text('Votre code est : ' . $code)

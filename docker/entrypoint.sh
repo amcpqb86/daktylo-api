@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+cd /var/www/html
+
 JWT_DIR="/var/www/html/config/jwt"
 mkdir -p "$JWT_DIR"
 chown -R www-data:www-data "$JWT_DIR"
@@ -23,8 +25,8 @@ if [ ! -f "$JWT_DIR/private.pem" ] || [ ! -f "$JWT_DIR/public.pem" ]; then
   chmod 644 "$JWT_DIR/public.pem"
 fi
 
-php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration || true
-
+php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration || echo "⚠️ migrations skipped"
+php bin/console assets:install public --symlink --relative || echo "⚠️ assets install skipped"
 php bin/console cache:warmup --env=prod || true
 
 exec apache2-foreground
