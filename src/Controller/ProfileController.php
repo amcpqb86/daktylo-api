@@ -23,6 +23,12 @@ final class ProfileController extends AbstractController
             return new JsonResponse(['error' => 'Username manquant'], 400);
         }
 
+        // Vérifie si le nom d'utilisateur existe déjà
+        $existing = $em->getRepository(User::class)->findOneBy(['username' => $newUsername]);
+        if ($existing && $existing->getId() !== $this->getUser()->getId()) {
+            return new JsonResponse(['error' => 'Ce nom d’utilisateur est déjà pris'], 409);
+        }
+
         /** @var User $user */
         $user = $this->getUser();
         $user->setUsername($newUsername);
