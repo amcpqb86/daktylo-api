@@ -70,8 +70,7 @@ class FetchWikiCommand extends Command
 
     private function isPlayable(string $text): bool
     {
-        // au moins 200 caractères, pas un truc de prononciation ou purement technique
-        return mb_strlen($text) > 200
+        return mb_strlen($text) > 100
             && !str_contains(mb_strtolower($text), 'prononciation')
             && !str_contains($text, 'IPA')
             && !str_contains($text, 'ʃ');
