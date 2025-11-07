@@ -62,6 +62,8 @@ class FetchWikiCommand extends Command
             $text
         );
 
+        $text = str_replace(['á', 'Á'], 'a', $text);
+
         // simplifie les espaces multiples
         $text = preg_replace('/\s+/', ' ', $text);
 
