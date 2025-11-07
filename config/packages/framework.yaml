@@ -8,6 +8,10 @@ framework:
     #esi: true
     #fragments: true
 
+    messenger:
+        routing:
+            'Symfony\Component\Mailer\Messenger\SendEmailMessage': sync
+
 when@test:
     framework:
         test: true

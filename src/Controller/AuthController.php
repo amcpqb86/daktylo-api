@@ -63,13 +63,20 @@ final class AuthController extends AbstractController
         $em->persist($loginCode);
         $em->flush();
 
-        $mailer->send(
-            (new Email())
-                ->from('Daktylo <no-reply@daktylo.fr>')
-                ->to($email)
-                ->subject('Votre code de connexion')
-                ->text('Votre code est : ' . $code)
-        );
+        try {
+            $mailer->send(
+                (new Email())
+                    ->from('Daktylo <no-reply@daktylo.fr>')
+                    ->to($email)
+                    ->subject('Votre code de connexion')
+                    ->text('Votre code est : ' . $code)
+            );
+        } catch (\Throwable $e) {
+            return $this->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
 
         return $this->json(['success' => true]);
     }
