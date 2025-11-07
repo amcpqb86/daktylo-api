@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,7 +23,7 @@ final class ProfileController extends AbstractController
             return new JsonResponse(['error' => 'Username manquant'], 400);
         }
 
-        /** @var \App\Entity\User $user */
+        /** @var User $user */
         $user = $this->getUser();
         $user->setUsername($newUsername);
 
