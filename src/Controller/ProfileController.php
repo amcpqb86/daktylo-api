@@ -37,4 +37,19 @@ final class ProfileController extends AbstractController
 
         return new JsonResponse(['success' => true, 'username' => $user->getUsername()]);
     }
+
+    #[Route('/me', name: 'app_me', methods: ['GET'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function __invoke(): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        return $this->json([
+            'id' => $user->getId(),
+            'email' => $user->getEmail(),
+            'username' => $user->getUsername(),
+            'lastLoginAt' => $user->getLastLoginAt()?->format(\DateTimeInterface::ATOM),
+        ]);
+    }
 }
