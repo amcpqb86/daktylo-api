@@ -33,7 +33,7 @@ class FetchWikiCommand extends Command
         $text = $this->cleanText($data['extract']);
 
         if (!$this->isPlayable($text)) {
-            $output->writeln('<comment>Article ignoré (non jouable).</comment>');
+            $output->writeln("<comment>Article ignoré : {$data['title']} ({$data['pageid']})</comment>");
             return Command::SUCCESS;
         }
 
