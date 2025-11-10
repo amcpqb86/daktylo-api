@@ -116,10 +116,7 @@ final class AuthController extends AbstractController
         $user->setLastLoginAt(new \DateTimeImmutable());
         $em->flush();
 
-        $token = $this->jwtManager->createFromPayload(
-            $user,
-            ['email' => $user->getEmail()]
-        );
+        $token = $this->jwtManager->create($user);
 
         $needsProfile = !$user->getPassword();
 
@@ -158,10 +155,7 @@ final class AuthController extends AbstractController
         }
 
         $user->setLastLoginAt(new \DateTimeImmutable());
-
-        $token = $this->jwtManager->createFromPayload($user, [
-            'email' => $user->getEmail(),
-        ]);
+        $token = $this->jwtManager->create($user);
 
         return $this->json([
             'success' => true,
@@ -200,7 +194,7 @@ final class AuthController extends AbstractController
             return $this->json(['success' => false, 'error' => 'Non authentifié'], 401);
         }
 
-        $token = $this->jwtManager->createFromPayload($user, ['email' => $user->getEmail()]);
+        $token = $this->jwtManager->create($user);
 
         return $this->json([
             'success' => true,
