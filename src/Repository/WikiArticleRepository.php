@@ -16,28 +16,36 @@ class WikiArticleRepository extends ServiceEntityRepository
         parent::__construct($registry, WikiArticle::class);
     }
 
-    //    /**
-    //     * @return WikiArticle[] Returns an array of WikiArticle objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('w')
-    //            ->andWhere('w.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('w.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
 
-    //    public function findOneBySomeField($value): ?WikiArticle
-    //    {
-    //        return $this->createQueryBuilder('w')
-    //            ->andWhere('w.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    public function findOneRandomNotInDaily(array $alreadyPickedIds): ?\App\Entity\WikiArticle
+    {
+        // 1. compter combien d'articles sont éligibles
+        $qbCount = $this->createQueryBuilder('w')
+            ->select('COUNT(w.id)');
+
+        if (!empty($alreadyPickedIds)) {
+            $qbCount->andWhere('w.id NOT IN (:ids)')
+                ->setParameter('ids', $alreadyPickedIds);
+        }
+
+        $total = (int) $qbCount->getQuery()->getSingleScalarResult();
+        if ($total === 0) {
+            return null;
+        }
+
+        $offset = random_int(0, $total - 1);
+
+        $qb = $this->createQueryBuilder('w');
+
+        if (!empty($alreadyPickedIds)) {
+            $qb->andWhere('w.id NOT IN (:ids)')
+                ->setParameter('ids', $alreadyPickedIds);
+        }
+
+        return $qb
+            ->setFirstResult($offset)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

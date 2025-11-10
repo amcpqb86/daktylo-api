@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\GameSession;
 use App\Entity\User;
+use App\Repository\WikiArticleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,7 +17,7 @@ class GameSessionController extends AbstractController
 {
     #[Route('', name: 'api_game_session_create', methods: ['POST'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function create(Request $request, EntityManagerInterface $em): JsonResponse
+    public function create(Request $request, EntityManagerInterface $em, WikiArticleRepository $wikiArticleRepository): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
@@ -33,6 +34,7 @@ class GameSessionController extends AbstractController
         $wpm           = (int) ($data['wpm']           ?? 0);
         $score         = (int) ($data['score']         ?? 0);
         $success       = (bool)($data['success']       ?? false);
+        $wikiId     = $data['wikiArticleId'] ?? null;
 
         // si le front n'a pas envoyé la précision, on la recalcule
         if ($accuracy === null) {
@@ -55,6 +57,12 @@ class GameSessionController extends AbstractController
         $session->setWpm($wpm);
         $session->setScore($score);
         $session->setSuccess($success);
+        if (in_array($mode, ['wiki', 'daily'], true) && $wikiId) {
+            $wikiArticle = $wikiArticleRepository->find($wikiId);
+            if ($wikiArticle) {
+                $session->setWikiArticle($wikiArticle);
+            }
+        }
 
         $em->persist($session);
         $em->flush();

@@ -44,6 +44,9 @@ class GameSession
     #[ORM\Column]
     private ?bool $success = null;
 
+    #[ORM\ManyToOne(inversedBy: 'gameSessions')]
+    private ?WikiArticle $wikiArticle = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -165,6 +168,18 @@ class GameSession
     public function setSuccess(bool $success): static
     {
         $this->success = $success;
+
+        return $this;
+    }
+
+    public function getWikiArticle(): ?WikiArticle
+    {
+        return $this->wikiArticle;
+    }
+
+    public function setWikiArticle(?WikiArticle $wikiArticle): static
+    {
+        $this->wikiArticle = $wikiArticle;
 
         return $this;
     }
