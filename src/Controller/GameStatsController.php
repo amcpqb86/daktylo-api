@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\GameSession;
+use App\Entity\WikiArticle;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -52,6 +53,26 @@ class GameStatsController extends AbstractController
             'total_time' => $formattedTime,
             'best_wpm' => (int) $stats['bestWpm'],
             'account_created' => $user->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+        ]);
+    }
+
+    #[Route('/product', name: 'api_stats_product', methods: ['GET'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    public function productInfos(EntityManagerInterface $em): JsonResponse
+    {
+        $wikiRepo = $em->getRepository(WikiArticle::class);
+
+        $wikiArticleCount = $wikiRepo->count([]);
+        $lastArticle = $wikiRepo->findOneBy([], ['createdAt' => 'DESC']);
+
+        return $this->json([
+            'wiki_article_count' => $wikiArticleCount,
+            'last_article' => $lastArticle ? [
+                'id' => $lastArticle->getId(),
+                'title' => $lastArticle->getTitle(),
+                'createdAt' => $lastArticle->getCreatedAt()->format('Y-m-d H:i:s'),
+                'wikiId' => $lastArticle->getWikiId(),
+            ] : null,
         ]);
     }
 }
