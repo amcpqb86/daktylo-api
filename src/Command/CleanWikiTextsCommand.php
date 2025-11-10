@@ -1,5 +1,5 @@
 <?php
-// src/Command/FetchWikiCommand.php
+
 namespace App\Command;
 
 use App\Entity\WikiArticle;
@@ -8,13 +8,11 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsCommand(name: 'app:fetch-wiki', description: 'Récupère un article Wikipédia aléatoire et le stocke s’il est valide')]
-class FetchWikiCommand extends Command
+#[AsCommand(name: 'app:clean-wiki-texts', description: 'Nettoie tous les articles Wiki en base pour les rendre tapables')]
+class CleanWikiTextsCommand extends Command
 {
     public function __construct(
-        private HttpClientInterface $http,
         private EntityManagerInterface $em
     ) {
         parent::__construct();
@@ -22,31 +20,23 @@ class FetchWikiCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $response = $this->http->request('GET', 'https://fr.wikipedia.org/api/rest_v1/page/random/summary');
-        $data = $response->toArray();
+        $repo = $this->em->getRepository(WikiArticle::class);
+        $articles = $repo->findAll();
+        $count = 0;
 
-        if (!isset($data['pageid'], $data['extract'])) {
-            $output->writeln('<error>Aucun article valide.</error>');
-            return Command::FAILURE;
+        foreach ($articles as $article) {
+            $oldText = $article->getText();
+            $newText = $this->cleanText($oldText);
+
+            if ($newText !== $oldText) {
+                $article->setText($newText);
+                $count++;
+            }
         }
 
-        $text = $this->cleanText($data['extract']);
-
-        if (!$this->isPlayable($text)) {
-            $output->writeln("<comment>Article ignoré : {$data['title']} ({$data['pageid']})</comment>");
-            return Command::SUCCESS;
-        }
-
-        $article = (new WikiArticle())
-            ->setWikiId($data['pageid'])
-            ->setTitle($data['title'])
-            ->setText($text);
-
-        $this->em->persist($article);
         $this->em->flush();
 
-        $output->writeln("<info>✅ Article sauvegardé : {$data['title']} ({$data['pageid']})</info>");
-
+        $output->writeln("<info>✅ $count articles nettoyés et mis à jour.</info>");
         return Command::SUCCESS;
     }
 
@@ -85,14 +75,4 @@ class FetchWikiCommand extends Command
 
         return trim($text);
     }
-
-    private function isPlayable(string $text): bool
-    {
-        return mb_strlen($text) > 100
-            && !str_contains(mb_strtolower($text), 'prononciation')
-            && !str_contains($text, 'IPA')
-            && !str_contains($text, 'ʃ');
-    }
-
-
 }
