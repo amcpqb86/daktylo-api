@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 final class AuthController extends AbstractController
@@ -20,6 +21,7 @@ final class AuthController extends AbstractController
 
     public function __construct(
         private JWTTokenManagerInterface $jwtManager,
+        private UserPasswordHasherInterface $passwordHasher,
     ) {}
 
     #[Route('/auth/request-code', name: 'auth_request_code', methods: ['POST'])]
@@ -31,7 +33,7 @@ final class AuthController extends AbstractController
         MailerInterface $mailer
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $email = $data['email'] ?? null;
+        $email = strtolower(trim($data['email'] ?? ''));
         if (!$email) {
             return $this->json(['success' => false, 'error' => 'Email manquant'], 400);
         }
@@ -88,7 +90,7 @@ final class AuthController extends AbstractController
         EntityManagerInterface $em
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $email = $data['email'] ?? null;
+        $email = strtolower(trim($data['email'] ?? ''));
         $code = $data['code'] ?? null;
 
         if (!$email || !$code) {
@@ -100,7 +102,9 @@ final class AuthController extends AbstractController
             return $this->json(['success' => false, 'error' => 'Code invalide'], 400);
         }
 
-        if ($loginCode->getUser()->getEmail() !== strtolower($email)) {
+        $user = $loginCode->getUser();
+
+        if ($user->getEmail() !== $email) {
             return $this->json(['success' => false, 'error' => 'Code non associé à cet email'], 400);
         }
 
@@ -109,13 +113,94 @@ final class AuthController extends AbstractController
         }
 
         $loginCode->setUsed(true);
-        $loginCode->getUser()->setLastLoginAt(new \DateTimeImmutable());
+        $user->setLastLoginAt(new \DateTimeImmutable());
         $em->flush();
 
         $token = $this->jwtManager->createFromPayload(
-            $loginCode->getUser(),
-            ['email' => $loginCode->getUser()->getEmail()]
+            $user,
+            ['email' => $user->getEmail()]
         );
+
+        $needsProfile = !$user->getPassword();
+
+        return $this->json([
+            'success' => true,
+            'token' => $token,
+            'needsProfile' => $needsProfile,
+            'email' => $user->getEmail(),
+            'username' => $user->getUsername(),
+        ]);
+    }
+
+    #[Route('/auth/login-password', name: 'auth_login_password', methods: ['POST'])]
+    public function loginPassword(Request $request, UserRepository $users): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        $email = strtolower(trim($data['email'] ?? ''));
+        $password = $data['password'] ?? null;
+
+        if (!$email || !$password) {
+            return $this->json(['success' => false, 'error' => 'Email ou mot de passe manquant'], 400);
+        }
+
+        /** @var User|null $user */
+        $user = $users->findOneBy(['email' => $email]);
+        if (!$user) {
+            return $this->json(['success' => false, 'error' => 'Utilisateur introuvable'], 400);
+        }
+
+        if (!$user->getPassword()) {
+            return $this->json(['success' => false, 'error' => 'Aucun mot de passe défini pour cet utilisateur'], 400);
+        }
+
+        if (!$this->passwordHasher->isPasswordValid($user, $password)) {
+            return $this->json(['success' => false, 'error' => 'Mot de passe incorrect'], 400);
+        }
+
+        $user->setLastLoginAt(new \DateTimeImmutable());
+
+        $token = $this->jwtManager->createFromPayload($user, [
+            'email' => $user->getEmail(),
+        ]);
+
+        return $this->json([
+            'success' => true,
+            'token' => $token,
+        ]);
+    }
+    #[Route('/auth/set-password', name: 'auth_set_password', methods: ['POST'])]
+    public function setPassword(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['success' => false, 'error' => 'Non authentifié'], 401);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $password = $data['password'] ?? null;
+
+        if (!$password) {
+            return $this->json(['success' => false, 'error' => 'Mot de passe manquant'], 400);
+        }
+
+        $hash = $this->passwordHasher->hashPassword($user, $password);
+        $user->setPassword($hash);
+        $em->flush();
+
+        return $this->json(['success' => true]);
+    }
+
+    #[Route('/auth/refresh', name: 'auth_refresh', methods: ['POST'])]
+    public function refresh(): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json(['success' => false, 'error' => 'Non authentifié'], 401);
+        }
+
+        $token = $this->jwtManager->createFromPayload($user, ['email' => $user->getEmail()]);
 
         return $this->json([
             'success' => true,
