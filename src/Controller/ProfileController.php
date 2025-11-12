@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\GameSession;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,16 +41,19 @@ final class ProfileController extends AbstractController
 
     #[Route('/me', name: 'app_me', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function __invoke(): JsonResponse
+    public function __invoke(EntityManagerInterface $em): JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
+
+        $bestDailyTime = $em->getRepository(GameSession::class)->getBestScoreOfTodayDaily();
 
         return $this->json([
             'id' => $user->getId(),
             'email' => $user->getEmail(),
             'username' => $user->getUsername(),
             'lastLoginAt' => $user->getLastLoginAt()?->format(\DateTimeInterface::ATOM),
+            'bestDailyTime' => $bestDailyTime !== null ? (int) $bestDailyTime : null,
         ]);
     }
 }

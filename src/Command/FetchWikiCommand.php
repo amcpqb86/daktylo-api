@@ -39,6 +39,10 @@ class FetchWikiCommand extends Command
             return Command::SUCCESS;
         }
 
+        if ($this->em->getRepository(WikiArticle::class)->findOneBy(['wikiId' => $data['pageid']])) {
+            $output->writeln("<comment>Article déjà présent en BD : {$data['title']} ({$data['pageid']}</comment>");
+        }
+
         $article = (new WikiArticle())
             ->setWikiId($data['pageid'])
             ->setTitle($data['title'])
