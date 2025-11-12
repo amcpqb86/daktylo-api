@@ -6,6 +6,11 @@ class TextCleaner
 {
     public function clean(string $text): string
     {
+        // 0. Normaliser les combinaisons (ex: i + U+0301 → í)
+        if (class_exists(\Normalizer::class)) {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_C);
+        }
+
         // 1. Décoder les entités HTML
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -42,20 +47,37 @@ class TextCleaner
         $text = preg_replace('/\s*\([a-z]{2}\)\s*/i', '', $text);
 
         // 9. Supprime les accents sur les MAJUSCULES uniquement
-        $text = strtr($text, [
-            'À' => 'A',
-            'Ç' => 'C',
-            'É' => 'E', 'È' => 'E',
-            'Ù' => 'U',
-            'Ÿ' => 'Y'
-        ]);
+        $protect = [
+            'é'=>'__E_ACUTE__','è'=>'__E_GRAVE__','ê'=>'__E_CIRC__','ë'=>'__E_DIER__',
+            'à'=>'__A_GRAVE__','â'=>'__A_CIRC__','ä'=>'__A_DIER__',
+            'ù'=>'__U_GRAVE__','û'=>'__U_CIRC__','ü'=>'__U_DIER__',
+            'î'=>'__I_CIRC__','ï'=>'__I_DIER__',
+            'ô'=>'__O_CIRC__','ö'=>'__O_DIER__',
+            'ç'=>'__C_CED__',
+            'É'=>'__E_ACUTE_U__','È'=>'__E_GRAVE_U__','Ê'=>'__E_CIRC_U__','Ë'=>'__E_DIER_U__',
+            'À'=>'__A_GRAVE_U__','Â'=>'__A_CIRC_U__','Ä'=>'__A_DIER_U__',
+            'Ù'=>'__U_GRAVE_U__','Û'=>'__U_CIRC_U__','Ü'=>'__U_DIER_U__',
+            'Î'=>'__I_CIRC_U__','Ï'=>'__I_DIER_U__',
+            'Ô'=>'__O_CIRC_U__','Ö'=>'__O_DIER_U__',
+            'Ç'=>'__C_CED_U__',
+        ];
+        $text = strtr($text, $protect);
+
+        // translitère tout le reste (š→s, ñ→n, …) mais nos accents FR sont protégés
+        if (class_exists(\Transliterator::class)) {
+            $text = \Transliterator::create('Any-Latin; Latin-ASCII; [:Nonspacing Mark:] Remove; NFC')->transliterate($text);
+        } else {
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_D);
+            $text = preg_replace('/\p{Mn}+/u', '', $text);
+            $text = strtr($text, ['ß'=>'ss','Þ'=>'Th','þ'=>'th','Đ'=>'D','đ'=>'d','Ł'=>'L','ł'=>'l','Ø'=>'O','ø'=>'o','Œ'=>'Oe','œ'=>'oe','Æ'=>'Ae','æ'=>'ae']);
+            $text = \Normalizer::normalize($text, \Normalizer::FORM_C);
+        }
+
+        // restaure les accents FR
+        $text = strtr($text, array_flip($protect));
 
         // 10. Conserver uniquement les caractères autorisés
-        $text = preg_replace(
-            '/[^a-zA-Z0-9à-öø-ÿçÇ\'"(),.!?:;\-%\s]/u',
-            '',
-            $text
-        );
+        $text = preg_replace('/[^\p{L}\p{M}\p{N}\'"(),.!?:;\-%\s]/u', '', $text);
 
         // 11. Simplifier les espaces
         $text = preg_replace('/\s+/', ' ', $text);
