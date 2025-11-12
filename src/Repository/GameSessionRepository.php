@@ -33,64 +33,91 @@ class GameSessionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    /**
-     * @param array{
-     *   mode?: ?string,
-     *   metric: 'durationMs'|'wpm'|'score',
-     *   agg: 'min'|'max',
-     *   direction: 'ASC'|'DESC',
-     *   start?: ?\DateTimeImmutable,
-     *   end?: ?\DateTimeImmutable,
-     *   articleId?: ?int,
-     *   success?: bool,
-     *   limit?: int
-     * } $opts
-     * @return array<int,array{userId:int,username:string,bestValue:string,attempts:string}>
-     */
+
     public function getLeaderboardByWindow(array $opts): array
     {
-        $qb = $this->createQueryBuilder('gs')
-            ->join('gs.user', 'u');
+        $conn = $this->getEntityManager()->getConnection();
 
-        // métrique/agrégat dynamiques
-        $metricField = match ($opts['metric']) {
+        $metric = $opts['metric'] ?? 'durationMs';           // durationMs|wpm|score
+        $direction = ($opts['direction'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+        $limit = (int)($opts['limit'] ?? 100);
+
+        // Champ SQL réel en base
+        $metricExpr = match ($metric) {
             'wpm'   => 'gs.wpm',
             'score' => 'gs.score',
-            default => 'gs.durationMs',
+            default => 'gs.duration_ms',
         };
-        $aggFn = ($opts['agg'] === 'max') ? 'MAX' : 'MIN';
 
-        $qb->select(sprintf(
-            'u.id AS userId, COALESCE(u.username, u.email) AS username, %s(%s) AS bestValue, COUNT(gs.id) AS attempts',
-            $aggFn,
-            $metricField
-        ));
+        // Filtres dynamiques
+        $where = ['1=1'];
+        $params = [];
 
-        // filtres
         if (!empty($opts['mode'])) {
-            $qb->andWhere('gs.mode = :mode')->setParameter('mode', $opts['mode']);
+            $where[] = 'gs.mode = :mode';
+            $params['mode'] = $opts['mode'];
         }
-        if (!empty($opts['success'])) {
-            $qb->andWhere('gs.success = :success')->setParameter('success', $opts['success']);
+        if (array_key_exists('success', $opts)) {
+            $where[] = 'gs.success = :success';
+            $params['success'] = (int) $opts['success'];
         }
         if (!empty($opts['articleId'])) {
-            // relation ManyToOne: on filtre via l'id de l'entité reliée
-            $qb->join('gs.wikiArticle', 'wa')
-                ->andWhere('wa.id = :aid')
-                ->setParameter('aid', $opts['articleId']);
+            $where[] = 'gs.wiki_article_id = :aid';
+            $params['aid'] = (int) $opts['articleId'];
         }
         if (!empty($opts['start'])) {
-            $qb->andWhere('gs.playedAt >= :start')->setParameter('start', $opts['start']);
+            $where[] = 'gs.played_at >= :start';
+            $params['start'] = $opts['start']->format('Y-m-d H:i:s');
         }
         if (!empty($opts['end'])) {
-            $qb->andWhere('gs.playedAt < :end')->setParameter('end', $opts['end']);
+            $where[] = 'gs.played_at < :end';
+            $params['end'] = $opts['end']->format('Y-m-d H:i:s');
         }
 
-        $qb->groupBy('u.id, u.username, u.email')
-            ->orderBy('bestValue', $opts['direction'] ?? 'ASC')
-            ->setMaxResults($opts['limit'] ?? 100);
+        // Single query avec window functions (MySQL 8+/PostgreSQL)
+        // 2) éviter le paramètre nommé dans LIMIT (MySQL le quote => '100')
+        $sql = "
+            WITH filtered AS (
+                SELECT
+                    u.id                                  AS user_id,
+                    COALESCE(u.username, u.email)         AS username,
+                    gs.id                                 AS session_id,
+                    gs.wpm,
+                    gs.accuracy,
+                    gs.duration_ms,
+                    gs.score,
+                    $metricExpr                           AS metric_value,
+                    COUNT(*) OVER (PARTITION BY u.id)     AS attempts
+                FROM game_session gs
+                JOIN `user` u ON u.id = gs.user_id
+                WHERE " . implode(' AND ', $where) . "
+            ),
+            ranked AS (
+                SELECT
+                    f.*,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY f.user_id
+                        ORDER BY f.metric_value $direction, f.session_id ASC
+                    ) AS rn
+                FROM filtered f
+            )
+            SELECT
+                r.user_id      AS userId,
+                r.username     AS username,
+                r.metric_value AS bestValue,
+                r.attempts     AS attempts,
+                r.wpm          AS bestWpm,
+                r.accuracy     AS bestAccuracy,
+                r.session_id   AS bestSessionId
+            FROM ranked r
+            WHERE r.rn = 1
+            ORDER BY bestValue $direction
+            LIMIT $limit
+        ";
 
-        return $qb->getQuery()->getArrayResult();
+        $params['lim'] = $limit;
+
+        return $conn->executeQuery($sql, $params)->fetchAllAssociative();
     }
 
 }

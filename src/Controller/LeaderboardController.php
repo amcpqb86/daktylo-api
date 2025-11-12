@@ -64,10 +64,13 @@ class LeaderboardController extends AbstractController
                 'limit'     => $limit,
             ],
             'leaderboard' => array_map(static fn(array $r) => [
-                'userId'     => (int) $r['userId'],
-                'username'   => $r['username'],
-                'bestValue'  => (int) $r['bestValue'], // ms si durationMs ; sinon wpm/score
-                'attempts'   => (int) $r['attempts'],
+                'userId'        => (int) $r['userId'],
+                'username'      => $r['username'],
+                'bestValue'     => (int) $r['bestValue'],   // ms si durationMs, sinon valeur brute
+                'attempts'      => (int) $r['attempts'],
+                'bestWpm'       => isset($r['bestWpm']) ? (int) $r['bestWpm'] : null,
+                'bestAccuracy'  => isset($r['bestAccuracy']) ? (float) $r['bestAccuracy'] : null,
+                'bestSessionId' => isset($r['bestSessionId']) ? (int) $r['bestSessionId'] : null,
             ], $rows),
         ]);
     }
