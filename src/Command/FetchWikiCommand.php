@@ -34,13 +34,15 @@ class FetchWikiCommand extends Command
 
         $text = $this->textCleaner->clean($data['extract']);
 
-        if (!$this->isPlayable($text)) {
-            $output->writeln("<comment>Article ignoré : {$data['title']} ({$data['pageid']})</comment>");
+        // 🔴 on passe aussi les meta pour filtrer par titre
+        if (!$this->isPlayable($text, $data)) {
+            $output->writeln("<comment>Article ignoré (non jouable) : {$data['title']} ({$data['pageid']})</comment>");
             return Command::SUCCESS;
         }
 
         if ($this->em->getRepository(WikiArticle::class)->findOneBy(['wikiId' => $data['pageid']])) {
-            $output->writeln("<comment>Article déjà présent en BD : {$data['title']} ({$data['pageid']}</comment>");
+            $output->writeln("<comment>Article déjà présent en BD : {$data['title']} ({$data['pageid']})</comment>");
+            return Command::SUCCESS;
         }
 
         $article = (new WikiArticle())
@@ -56,8 +58,27 @@ class FetchWikiCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function isPlayable(string $text): bool
+    private function isPlayable(string $text, array $meta): bool
     {
+        $title = mb_strtolower($meta['title'] ?? '');
+        $rawExtract = mb_strtolower($meta['extract'] ?? '');
+
+        if (preg_match('/^(décès|naissance)s? en \d{3,4}$/u', $title)) {
+            return false;
+        }
+
+        if (str_starts_with($title, 'liste de ') || str_starts_with($title, 'liste des ')) {
+            return false;
+        }
+
+        if (preg_match('/^\d{3,4}( en .+)?$/u', $title)) {
+            return false;
+        }
+
+        if (str_starts_with($rawExtract, 'cette page dresse une liste')) {
+            return false;
+        }
+
         return mb_strlen($text) > 100
             && !str_contains(mb_strtolower($text), 'prononciation')
             && !str_contains($text, 'IPA')
