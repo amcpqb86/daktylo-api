@@ -38,7 +38,8 @@ class RepairWikiArticlesCommand extends Command
             ->addOption('sleep', null, InputOption::VALUE_REQUIRED, 'Pause (ms) entre requêtes', 150)
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Ne pas enregistrer, juste simuler')
             ->addOption('title-source', null, InputOption::VALUE_REQUIRED, 'source pour refetch: title|pageid', 'title')
-            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'ID interne de WikiArticle à réparer', null);
+            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'ID interne de WikiArticle à réparer', null)
+            ->addOption('debug', null, InputOption::VALUE_NONE, 'Activer les logs du TextCleaner');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,8 +50,8 @@ class RepairWikiArticlesCommand extends Command
         $sleepMs = (int)$input->getOption('sleep');
         $dry     = (bool)$input->getOption('dry-run');
         $by      = (string)$input->getOption('title-source'); // 'title' ou 'pageid'
-
         $id = $input->getOption('id');
+        $debug = (bool)$input->getOption('debug');
 
         if ($id !== null) {
             $article = $this->articles->find((int)$id);
@@ -126,7 +127,7 @@ class RepairWikiArticlesCommand extends Command
                 }
 
                 // --- Clean
-                $clean = $this->cleaner->clean($extract);
+                $clean = $this->cleaner->clean($extract, $debug);
 
                 // --- Compare & persist
                 $changed = false;

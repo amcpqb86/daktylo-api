@@ -4,15 +4,31 @@ namespace App\Service;
 
 class TextCleaner
 {
-    public function clean(string $text): string
+    private function debug(string $label, string $text, $debug): void
     {
+        if ($debug)
+        {
+            file_put_contents(
+                '/tmp/clean_debug.log',
+                "=== $label ===\n$text\n\n",
+                FILE_APPEND
+            );
+        }
+    }
+
+    public function clean(string $text, $debug = false): string
+    {
+        $this->debug('START', $text, $debug);
+
         // 0. Normaliser les combinaisons (ex: i + U+0301 → í)
         if (class_exists(\Normalizer::class)) {
             $text = \Normalizer::normalize($text, \Normalizer::FORM_C);
         }
+        $this->debug('AFTER NORMALIZE', $text, $debug);
 
         // 1. Décoder les entités HTML
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->debug('AFTER HTML ENTITIES', $text, $debug);
 
         // 2. Normalisation des apostrophes et guillemets typographiques → tapables
         $text = str_replace(
@@ -20,16 +36,20 @@ class TextCleaner
             ["'", "'", '"', '"', '"', '"'],
             $text
         );
+        $this->debug('AFTER STEP 2', $text, $debug);
 
         // 3. Normaliser les espaces spéciaux → espace simple
         $text = str_replace(["\xc2\xa0", "\xe2\x80\xaf", "\xe2\x80\xa8", "\xe2\x80\xa9"], ' ', $text);
+        $this->debug('AFTER STEP 3', $text, $debug);
 
         // 4. Ellipse
         $text = str_replace(['…'], '...', $text);
+        $this->debug('AFTER STEP 4', $text, $debug);
 
         // 5. Ligatures → formes tapables
         $text = str_replace(['œ', 'Œ'], 'oe', $text);
         $text = str_replace(['æ', 'Æ'], 'ae', $text);
+        $this->debug('AFTER STEP 5', $text, $debug);
 
         // 6. Tous les types de tirets → tiret simple
         $text = str_replace(
@@ -39,12 +59,16 @@ class TextCleaner
         );
         // éviter les -- après remplacement
         $text = preg_replace('/-{2,}/', '-', $text);
+        $this->debug('AFTER STEP 6', $text, $debug);
+
 
         // 7. Retours à la ligne → espace
         $text = preg_replace("/\r\n|\r|\n/", ' ', $text);
+        $this->debug('AFTER STEP 7', $text, $debug);
 
         // 8. Supprime les (de), (en), (it), etc.
         $text = preg_replace('/\s*\([a-z]{2}\)\s*/i', '', $text);
+        $this->debug('AFTER STEP 8', $text, $debug);
 
         // 9. Supprime les accents sur les MAJUSCULES uniquement
         $protect = [
@@ -62,6 +86,7 @@ class TextCleaner
             'Ç'=>'__C_CED_U__',
         ];
         $text = strtr($text, $protect);
+        $this->debug('AFTER STEP 9', $text, $debug);
 
         // translitère tout le reste (š→s, ñ→n, …) mais nos accents FR sont protégés
         if (class_exists(\Transliterator::class)) {
@@ -78,9 +103,11 @@ class TextCleaner
 
         // 10. Conserver uniquement les caractères autorisés
         $text = preg_replace('/[^\p{L}\p{M}\p{N}\'"(),.!?:;\-%\s]/u', '', $text);
+        $this->debug('AFTER STEP 10', $text, $debug);
 
         // 11. Simplifier les espaces
         $text = preg_replace('/\s+/', ' ', $text);
+        $this->debug('AFTER STEP 11', $text, $debug);
 
         return trim($text);
     }
