@@ -33,6 +33,25 @@ class GameSessionRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    public function getBestScoreOfTodayDailyForUser(int $userId): ?int
+    {
+        $start = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
+        $end = $start->modify('+1 day');
+
+        return $this->createQueryBuilder('g')
+            ->select('MIN(g.durationMs)')
+            ->andWhere('g.mode = :mode')
+            ->andWhere('g.playedAt >= :start')
+            ->andWhere('g.playedAt < :end')
+            ->andWhere('g.user = :user')
+            ->setParameter('mode', 'daily')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->setParameter('user', $userId)
+            ->getQuery()
+            ->getSingleScalarResult() ?: null;
+    }
+
 
     public function getLeaderboardByWindow(array $opts): array
     {

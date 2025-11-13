@@ -46,7 +46,8 @@ final class ProfileController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
 
-        $bestDailyTime = $em->getRepository(GameSession::class)->getBestScoreOfTodayDaily();
+        $bestDailyTime = $em->getRepository(GameSession::class)
+            ->getBestScoreOfTodayDailyForUser($user->getId());
 
         return $this->json([
             'id' => $user->getId(),
