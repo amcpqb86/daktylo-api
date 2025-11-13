@@ -37,7 +37,8 @@ class RepairWikiArticlesCommand extends Command
             ->addOption('offset', null, InputOption::VALUE_REQUIRED, 'Décalage dans la liste', 0)
             ->addOption('sleep', null, InputOption::VALUE_REQUIRED, 'Pause (ms) entre requêtes', 150)
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Ne pas enregistrer, juste simuler')
-            ->addOption('title-source', null, InputOption::VALUE_REQUIRED, 'source pour refetch: title|pageid', 'title');
+            ->addOption('title-source', null, InputOption::VALUE_REQUIRED, 'source pour refetch: title|pageid', 'title')
+            ->addOption('id', null, InputOption::VALUE_REQUIRED, 'ID interne de WikiArticle à réparer', null);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -59,6 +60,22 @@ class RepairWikiArticlesCommand extends Command
 
         /** @var WikiArticle[] $rows */
         $rows = $qb->getQuery()->getResult();
+
+        $id = $input->getOption('id');
+
+        if ($id !== null) {
+            $article = $this->articles->find((int)$id);
+
+            if (!$article) {
+                $io->error("Aucun article trouvé avec l'id $id");
+                return Command::FAILURE;
+            }
+
+            // On remplace $rows par un tableau contenant juste cet article
+            $rows = [$article];
+
+            $io->section("Mode ID unique : réparation de l'article #$id ({$article->getTitle()})");
+        }
 
         if (!$rows) {
             $io->warning('Aucun article à traiter.');
