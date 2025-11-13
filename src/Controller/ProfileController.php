@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\GameSession;
 use App\Entity\User;
+use App\Service\LevelCalculator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,7 +42,7 @@ final class ProfileController extends AbstractController
 
     #[Route('/me', name: 'app_me', methods: ['GET'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function __invoke(EntityManagerInterface $em): JsonResponse
+    public function __invoke(EntityManagerInterface $em, LevelCalculator $levelCalculator): JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
@@ -49,12 +50,20 @@ final class ProfileController extends AbstractController
         $bestDailyTime = $em->getRepository(GameSession::class)
             ->getBestScoreOfTodayDailyForUser($user->getId());
 
+        $levelInfo = $levelCalculator->computeLevel($user->getTotalXp());
+
         return $this->json([
             'id' => $user->getId(),
             'email' => $user->getEmail(),
             'username' => $user->getUsername(),
             'lastLoginAt' => $user->getLastLoginAt()?->format(\DateTimeInterface::ATOM),
             'bestDailyTime' => $bestDailyTime !== null ? (int) $bestDailyTime : null,
+            'xp' => [
+                'total'        => $user->getTotalXp(),
+                'level'        => $levelInfo['level'],
+                'currentXp'    => $levelInfo['currentXp'],
+                'neededForNext'=> $levelInfo['neededForNext'],
+            ],
         ]);
     }
 }

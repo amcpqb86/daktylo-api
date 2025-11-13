@@ -38,6 +38,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $password = null;
 
+    #[ORM\Column]
+    private ?int $totalXp = 0;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -148,6 +151,29 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPassword(?string $password): static
     {
         $this->password = $password;
+
+        return $this;
+    }
+
+    public function getTotalXp(): ?int
+    {
+        return $this->totalXp;
+    }
+
+    public function setTotalXp(?int $totalXp): static
+    {
+        $this->totalXp = $totalXp;
+
+        return $this;
+    }
+
+    public function addXp(int $amount): self
+    {
+        if ($amount < 0) {
+            return $this;
+        }
+
+        $this->totalXp += $amount;
 
         return $this;
     }

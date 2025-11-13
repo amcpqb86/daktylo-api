@@ -36,6 +36,9 @@ class GameSessionController extends AbstractController
         $success       = (bool)($data['success']       ?? false);
         $wikiId     = $data['wikiArticleId'] ?? null;
 
+        $xpEarned = (int) $charsTyped;
+        $user->addXp($xpEarned);
+
         // si le front n'a pas envoyé la précision, on la recalcule
         if ($accuracy === null) {
             if ($charsTyped > 0) {
@@ -65,7 +68,10 @@ class GameSessionController extends AbstractController
         }
 
         $em->persist($session);
+        $em->persist($user);
         $em->flush();
+
+        $levelInfo = $levelCalculator->computeLevel($user->getTotalXp());
 
         return $this->json([
             'id' => $session->getId(),
@@ -73,6 +79,13 @@ class GameSessionController extends AbstractController
             'wpm' => $session->getWpm(),
             'accuracy' => $session->getAccuracy(),
             'createdAt' => $session->getPlayedAt()->format(\DateTimeInterface::ATOM),
+            'xp' => [
+                'earned'      => $xpEarned,
+                'total'       => $user->getTotalXp(),
+                'level'       => $levelInfo['level'],
+                'currentXp'   => $levelInfo['currentXp'],
+                'neededForNext' => $levelInfo['neededForNext'],
+            ],
         ], 201);
     }
 }
