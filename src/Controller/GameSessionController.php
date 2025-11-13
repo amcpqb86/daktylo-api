@@ -5,6 +5,9 @@ namespace App\Controller;
 use App\Entity\GameSession;
 use App\Entity\User;
 use App\Repository\WikiArticleRepository;
+use App\Service\AchievementChecker;
+use App\Service\LevelCalculator;
+use App\Service\UserStatsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,7 +20,7 @@ class GameSessionController extends AbstractController
 {
     #[Route('', name: 'api_game_session_create', methods: ['POST'])]
     #[IsGranted('IS_AUTHENTICATED_FULLY')]
-    public function create(Request $request, EntityManagerInterface $em, WikiArticleRepository $wikiArticleRepository): JsonResponse
+    public function create(Request $request, EntityManagerInterface $em, WikiArticleRepository $wikiArticleRepository, LevelCalculator $levelCalculator, UserStatsService $statsService, AchievementChecker $achievementChecker): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
@@ -73,6 +76,15 @@ class GameSessionController extends AbstractController
 
         $levelInfo = $levelCalculator->computeLevel($user->getTotalXp());
 
+        $stats = $statsService->buildStatsFor($user);
+
+        $newAchievements = $achievementChecker->checkForSession(
+            $user,
+            $session,
+            $stats
+        );
+
+
         return $this->json([
             'id' => $session->getId(),
             'mode' => $session->getMode(),
@@ -86,6 +98,11 @@ class GameSessionController extends AbstractController
                 'currentXp'   => $levelInfo['currentXp'],
                 'neededForNext' => $levelInfo['neededForNext'],
             ],
+            'achievements' => array_map(fn($a) => [
+                'code' => $a->getCode(),
+                'name' => $a->getName(),
+                'description' => $a->getDescription(),
+            ], $newAchievements),
         ], 201);
     }
 }

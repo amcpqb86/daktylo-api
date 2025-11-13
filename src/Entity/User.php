@@ -41,10 +41,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $totalXp = 0;
 
+    /**
+     * @var Collection<int, UserAchievement>
+     */
+    #[ORM\OneToMany(targetEntity: UserAchievement::class, mappedBy: 'user', orphanRemoval: true)]
+    private Collection $userAchievements;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->gameSessions = new ArrayCollection();
+        $this->userAchievements = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -174,6 +181,36 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         $this->totalXp += $amount;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, UserAchievement>
+     */
+    public function getUserAchievements(): Collection
+    {
+        return $this->userAchievements;
+    }
+
+    public function addUserAchievement(UserAchievement $userAchievement): static
+    {
+        if (!$this->userAchievements->contains($userAchievement)) {
+            $this->userAchievements->add($userAchievement);
+            $userAchievement->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeUserAchievement(UserAchievement $userAchievement): static
+    {
+        if ($this->userAchievements->removeElement($userAchievement)) {
+            // set the owning side to null (unless already changed)
+            if ($userAchievement->getUser() === $this) {
+                $userAchievement->setUser(null);
+            }
+        }
 
         return $this;
     }
