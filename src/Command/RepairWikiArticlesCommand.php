@@ -50,17 +50,6 @@ class RepairWikiArticlesCommand extends Command
         $dry     = (bool)$input->getOption('dry-run');
         $by      = (string)$input->getOption('title-source'); // 'title' ou 'pageid'
 
-        $qb = $this->articles->createQueryBuilder('w')
-            ->orderBy('w.id', 'ASC')
-            ->setFirstResult($offset);
-
-        if ($limit !== null) {
-            $qb->setMaxResults($limit);
-        }
-
-        /** @var WikiArticle[] $rows */
-        $rows = $qb->getQuery()->getResult();
-
         $id = $input->getOption('id');
 
         if ($id !== null) {
@@ -71,15 +60,25 @@ class RepairWikiArticlesCommand extends Command
                 return Command::FAILURE;
             }
 
-            // On remplace $rows par un tableau contenant juste cet article
             $rows = [$article];
 
-            $io->section("Mode ID unique : réparation de l'article #$id ({$article->getTitle()})");
-        }
+            $io->section("Mode ciblé : réparation du WikiArticle #$id ({$article->getTitle()})");
+        } else {
+            // mode normal: on utilise le query builder existant
+            $qb = $this->articles->createQueryBuilder('w')
+                ->orderBy('w.id', 'ASC')
+                ->setFirstResult($offset);
 
-        if (!$rows) {
-            $io->warning('Aucun article à traiter.');
-            return Command::SUCCESS;
+            if ($limit !== null) {
+                $qb->setMaxResults($limit);
+            }
+
+            $rows = $qb->getQuery()->getResult();
+
+            if (!$rows) {
+                $io->warning('Aucun article à traiter.');
+                return Command::SUCCESS;
+            }
         }
 
         $io->section(sprintf('Traitement de %d article(s) (offset=%d, limit=%s, mode=%s, dry=%s)', count($rows), $offset, $limit ?? '∞', $by, $dry ? 'oui' : 'non'));
