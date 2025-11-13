@@ -66,24 +66,30 @@ class TextCleaner
         $text = preg_replace("/\r\n|\r|\n/", ' ', $text);
         $this->debug('AFTER STEP 7', $text, $debug);
 
+        // 7b. Supprimer les transcriptions phonétiques et autres blocs entre crochets
+        // - tout ce qui est entre [ ... ] avec des lettres/IPA
+        $text = preg_replace('/\[[^\]]*[^\d\s][^\]]*\]/u', '', $text);
+        // - puis les références [1], [12]...
+        $text = preg_replace('/\[\d+\]/u', '', $text);
+        $this->debug('AFTER STEP 7B BRACKETS', $text, $debug);
+
+        // 7c. Supprimer les "Portail de ..." en fin d'extrait
+        $text = preg_replace('/Portail [^.]+$/u', '', $text);
+        $this->debug('AFTER STEP 7C PORTAL', $text, $debug);
+
         // 8. Supprime les (de), (en), (it), etc.
         $text = preg_replace('/\s*\([a-z]{2}\)\s*/i', '', $text);
         $this->debug('AFTER STEP 8', $text, $debug);
 
         // 9. Supprime les accents sur les MAJUSCULES uniquement
         $protect = [
+            // minuscules uniquement : on les protège pour garder leurs accents
             'é'=>'__E_ACUTE__','è'=>'__E_GRAVE__','ê'=>'__E_CIRC__','ë'=>'__E_DIER__',
             'à'=>'__A_GRAVE__','â'=>'__A_CIRC__','ä'=>'__A_DIER__',
             'ù'=>'__U_GRAVE__','û'=>'__U_CIRC__','ü'=>'__U_DIER__',
             'î'=>'__I_CIRC__','ï'=>'__I_DIER__',
             'ô'=>'__O_CIRC__','ö'=>'__O_DIER__',
             'ç'=>'__C_CED__',
-            'É'=>'__E_ACUTE_U__','È'=>'__E_GRAVE_U__','Ê'=>'__E_CIRC_U__','Ë'=>'__E_DIER_U__',
-            'À'=>'__A_GRAVE_U__','Â'=>'__A_CIRC_U__','Ä'=>'__A_DIER_U__',
-            'Ù'=>'__U_GRAVE_U__','Û'=>'__U_CIRC_U__','Ü'=>'__U_DIER_U__',
-            'Î'=>'__I_CIRC_U__','Ï'=>'__I_DIER_U__',
-            'Ô'=>'__O_CIRC_U__','Ö'=>'__O_DIER_U__',
-            'Ç'=>'__C_CED_U__',
         ];
         $text = strtr($text, $protect);
         $this->debug('AFTER STEP 9', $text, $debug);
