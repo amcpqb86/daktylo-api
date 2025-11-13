@@ -32,8 +32,9 @@ class TextCleaner
 
         // 2. Normalisation des apostrophes et guillemets typographiques → tapables
         $text = str_replace(
-            ['’', '‘', '“', '”', '«', '»'],
-            ["'", "'", '"', '"', '"', '"'],
+        // ’ ‘  “  ”  «  »  + autres variantes d’apostrophe
+            ['’', '‘', '“', '”', '«', '»', 'ʼ', 'ʾ'],
+            ["'", "'", '"', '"', '"', '"', "'", "'"],
             $text
         );
         $this->debug('AFTER STEP 2', $text, $debug);
@@ -70,7 +71,7 @@ class TextCleaner
         // - tout ce qui est entre [ ... ] avec des lettres/IPA
         $text = preg_replace('/\[[^\]]*[^\d\s][^\]]*\]/u', '', $text);
         // - puis les références [1], [12]...
-        $text = preg_replace('/\[\d+\]/u', '', $text);
+        $text = preg_replace('/\[[^\]]*\]/u', '', $text);
         $this->debug('AFTER STEP 7B BRACKETS', $text, $debug);
 
         // 7c. Supprimer les "Portail de ..." en fin d'extrait
