@@ -30,6 +30,9 @@ class GameSession
     private ?int $charsTyped = null;
 
     #[ORM\Column]
+    private ?int $wordsTyped = null;
+
+    #[ORM\Column]
     private ?int $errors = null;
 
     #[ORM\Column]
@@ -108,6 +111,18 @@ class GameSession
     public function setCharsTyped(int $charsTyped): static
     {
         $this->charsTyped = $charsTyped;
+
+        return $this;
+    }
+
+    public function getWordsTyped(): ?int
+    {
+        return $this->wordsTyped;
+    }
+
+    public function setWordsTyped(int $wordsTyped): static
+    {
+        $this->wordsTyped = $wordsTyped;
 
         return $this;
     }

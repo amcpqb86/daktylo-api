@@ -32,6 +32,7 @@ class GameSessionController extends AbstractController
         $mode          = $data['mode']          ?? 'normal';
         $durationMs    = (int) ($data['durationMs']    ?? 0);
         $charsTyped    = (int) ($data['charsTyped']    ?? 0);
+        $wordsTyped    = (int) ($data['wordsTyped']    ?? 0);
         $errors        = (int) ($data['errors']        ?? 0);
         $accuracy      = $data['accuracy']     ?? null;
         $wpm           = (int) ($data['wpm']           ?? 0);
@@ -58,6 +59,7 @@ class GameSessionController extends AbstractController
         $session->setPlayedAt(new \DateTimeImmutable());
         $session->setDurationMs($durationMs);
         $session->setCharsTyped($charsTyped);
+        $session->setWordsTyped($wordsTyped);
         $session->setErrors($errors);
         $session->setAccuracy((float) $accuracy);
         $session->setWpm($wpm);
