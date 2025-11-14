@@ -197,4 +197,65 @@ class GameStatsController extends AbstractController
             ],
         ]);
     }
+
+    #[Route('/me/heatmap', name: 'api_me_stats_heatmap', methods: ['GET'])]
+    public function heatmap(): JsonResponse
+    {
+        $user = $this->security->getUser();
+
+        if (!$user instanceof \App\Entity\User) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        /** @var GameSession[] $sessions */
+        $sessions = $this->gameSessionRepository->findBy(['user' => $user]);
+
+        // [day][hour] => ['sessions' => int, 'sumWpm' => float, 'sumAcc' => float]
+        $grid = [];
+
+        foreach ($sessions as $session) {
+            $playedAt = $session->getPlayedAt();
+            if (!$playedAt) {
+                continue;
+            }
+
+            // 1 = lundi ... 7 = dimanche  → on veut 0–6
+            $dayIndex = (int) $playedAt->format('N') - 1;    // 0–6
+            $hour     = (int) $playedAt->format('G');        // 0–23
+
+            if (!isset($grid[$dayIndex])) {
+                $grid[$dayIndex] = [];
+            }
+            if (!isset($grid[$dayIndex][$hour])) {
+                $grid[$dayIndex][$hour] = [
+                    'sessions' => 0,
+                    'sumWpm'   => 0.0,
+                    'sumAcc'   => 0.0,
+                ];
+            }
+
+            $grid[$dayIndex][$hour]['sessions']++;
+            $grid[$dayIndex][$hour]['sumWpm'] += (float) ($session->getWpm() ?? 0);
+            $grid[$dayIndex][$hour]['sumAcc'] += (float) ($session->getAccuracy() ?? 0);
+        }
+
+        $points = [];
+        foreach ($grid as $day => $hours) {
+            foreach ($hours as $hour => $agg) {
+                $sessionsCount = max(1, $agg['sessions']);
+
+                $points[] = [
+                    'day'          => (int) $day,                 // 0–6 (lun–dim)
+                    'hour'         => (int) $hour,                // 0–23
+                    'sessions'     => (int) $agg['sessions'],
+                    'avg_wpm'      => round($agg['sumWpm'] / $sessionsCount, 1),
+                    'avg_accuracy' => round($agg['sumAcc'] / $sessionsCount, 1),
+                ];
+            }
+        }
+
+        return $this->json([
+            'points' => $points,
+        ]);
+    }
 }
