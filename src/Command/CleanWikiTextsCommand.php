@@ -10,7 +10,10 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'app:clean-wiki-texts', description: 'Nettoie tous les articles Wiki en base pour les rendre tapables')]
+#[AsCommand(
+    name: 'app:clean-and-filter-wiki-articles',
+    description: 'Nettoie tous les articles Wiki et supprime ceux qui ne sont pas jouables'
+)]
 class CleanWikiTextsCommand extends Command
 {
     public function __construct(
@@ -24,21 +27,67 @@ class CleanWikiTextsCommand extends Command
     {
         $repo = $this->em->getRepository(WikiArticle::class);
         $articles = $repo->findAll();
-        $count = 0;
+
+        $updated = 0;
+        $removed = 0;
 
         foreach ($articles as $article) {
-            $oldText = $article->getText();
+            $oldText = $article->getText() ?? '';
             $newText = $this->textCleaner->clean($oldText);
 
+            // ⚙️ Mets ici les bons getters en fonction de ton entity
+            $meta = [
+                'title'   => $article->getTitle(),   // adapte si besoin
+                'extract' => $article->getText(), // adapte si besoin
+            ];
+
+            // Si pas jouable → suppression directe
+            if (!$this->isPlayable($newText, $meta)) {
+                $this->em->remove($article);
+                $removed++;
+                continue;
+            }
+
+            // Sinon, on garde et on met à jour le texte si nécessaire
             if ($newText !== $oldText) {
                 $article->setText($newText);
-                $count++;
+                $updated++;
             }
         }
 
         $this->em->flush();
 
-        $output->writeln("<info>✅ $count articles nettoyés et mis à jour.</info>");
+        $output->writeln("<info>✅ $updated articles nettoyés et conservés.</info>");
+        $output->writeln("<comment>🗑️ $removed articles supprimés car non jouables.</comment>");
+
         return Command::SUCCESS;
+    }
+
+    private function isPlayable(string $text, array $meta): bool
+    {
+        $title = mb_strtolower($meta['title'] ?? '');
+        $rawExtract = mb_strtolower($meta['extract'] ?? '');
+        $lowerText = mb_strtolower($text);
+
+        if (preg_match('/^(décès|naissance)s? en \d{3,4}$/u', $title)) {
+            return false;
+        }
+
+        if (str_starts_with($title, 'liste de ') || str_starts_with($title, 'liste des ')) {
+            return false;
+        }
+
+        if (preg_match('/^\d{3,4}( en .+)?$/u', $title)) {
+            return false;
+        }
+
+        if (str_starts_with($rawExtract, 'cette page dresse une liste')) {
+            return false;
+        }
+
+        return mb_strlen($text) > 100
+            && !str_contains($lowerText, 'prononciation')
+            && !str_contains($text, 'IPA')
+            && !str_contains($text, 'ʃ');
     }
 }
