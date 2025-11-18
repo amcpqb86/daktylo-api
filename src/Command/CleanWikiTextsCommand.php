@@ -35,20 +35,20 @@ class CleanWikiTextsCommand extends Command
             $oldText = $article->getText() ?? '';
             $newText = $this->textCleaner->clean($oldText);
 
-            // ⚙️ Mets ici les bons getters en fonction de ton entity
             $meta = [
-                'title'   => $article->getTitle(),   // adapte si besoin
-                'extract' => $article->getText(), // adapte si besoin
+                'title'   => $article->getTitle(),
+                'extract' => $article->getText(),
             ];
 
-            // Si pas jouable → suppression directe
-            if (!$this->isPlayable($newText, $meta)) {
+            $isPlayable      = $this->isPlayable($newText, $meta);
+            $hasGameSessions = !$article->getGameSessions()->isEmpty();
+
+            if (!$isPlayable && !$hasGameSessions) {
                 $this->em->remove($article);
                 $removed++;
                 continue;
             }
 
-            // Sinon, on garde et on met à jour le texte si nécessaire
             if ($newText !== $oldText) {
                 $article->setText($newText);
                 $updated++;
@@ -58,7 +58,7 @@ class CleanWikiTextsCommand extends Command
         $this->em->flush();
 
         $output->writeln("<info>✅ $updated articles nettoyés et conservés.</info>");
-        $output->writeln("<comment>🗑️ $removed articles supprimés car non jouables.</comment>");
+        $output->writeln("<comment>🗑️ $removed articles supprimés car non jouables et sans parties associées.</comment>");
 
         return Command::SUCCESS;
     }
