@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\GameSession;
+use App\Entity\User;
 use App\Entity\WikiArticle;
 use App\Repository\GameSessionRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -219,9 +221,11 @@ class GameStatsController extends AbstractController
                 continue;
             }
 
+            $playedAtLocal = $playedAt->setTimezone(new \DateTimeZone('Europe/Paris'));
+
             // 1 = lundi ... 7 = dimanche  → on veut 0–6
-            $dayIndex = (int) $playedAt->format('N') - 1;    // 0–6
-            $hour     = (int) $playedAt->format('G');        // 0–23
+            $dayIndex = (int) $playedAtLocal->format('N') - 1; // 0–6
+            $hour     = (int) $playedAtLocal->format('G');     // 0–23
 
             if (!isset($grid[$dayIndex])) {
                 $grid[$dayIndex] = [];
@@ -255,6 +259,81 @@ class GameStatsController extends AbstractController
         }
 
         return $this->json([
+            'points' => $points,
+        ]);
+    }
+
+    #[Route('/me/heatmap-year', name: 'api_me_stats_heatmap_year', methods: ['GET'])]
+    public function heatmapYear(Request $request): JsonResponse
+    {
+        $user = $this->security->getUser();
+
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'Unauthorized'], 401);
+        }
+
+        // année demandée ?year=2025, sinon année courante
+        $year = (int) ($request->query->get('year') ?? (new \DateTimeImmutable())->format('Y'));
+
+        $start = new \DateTimeImmutable(sprintf('%d-01-01 00:00:00', $year));
+        $end   = $start->modify('+1 year');
+
+        /** @var GameSession[] $sessions */
+        $sessions = $this->gameSessionRepository->createQueryBuilder('g')
+            ->where('g.user = :user')
+            ->andWhere('g.playedAt >= :start')
+            ->andWhere('g.playedAt < :end')
+            ->setParameter('user', $user)
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getResult();
+
+        // agrégat par jour: Y-m-d => { sessions, chars, words, wpm, accuracy }
+        $days = [];
+
+        foreach ($sessions as $session) {
+            $playedAt = $session->getPlayedAt();
+            if (!$playedAt) {
+                continue;
+            }
+
+            $dateKey = $playedAt->format('Y-m-d');
+
+            if (!isset($days[$dateKey])) {
+                $days[$dateKey] = [
+                    'sessions'     => 0,
+                    'chars_typed'  => 0,
+                    'words_typed'  => 0,
+                    'sum_wpm'      => 0.0,
+                    'sum_accuracy' => 0.0,
+                ];
+            }
+
+            $days[$dateKey]['sessions']++;
+            $days[$dateKey]['chars_typed']  += (int) ($session->getCharsTyped() ?? 0);
+            $days[$dateKey]['words_typed']  += (int) ($session->getWordsTyped() ?? 0);
+            $days[$dateKey]['sum_wpm']      += (float) ($session->getWpm() ?? 0);
+            $days[$dateKey]['sum_accuracy'] += (float) ($session->getAccuracy() ?? 0);
+        }
+
+        $points = [];
+
+        foreach ($days as $date => $agg) {
+            $sessionsCount = max(1, $agg['sessions']);
+
+            $points[] = [
+                'date'         => $date, // ex: "2025-11-20"
+                'sessions'     => $agg['sessions'],
+                'chars_typed'  => $agg['chars_typed'],
+                'words_typed'  => $agg['words_typed'],
+                'avg_wpm'      => round($agg['sum_wpm'] / $sessionsCount, 1),
+                'avg_accuracy' => round($agg['sum_accuracy'] / $sessionsCount, 3),
+            ];
+        }
+
+        return $this->json([
+            'year'   => $year,
             'points' => $points,
         ]);
     }
