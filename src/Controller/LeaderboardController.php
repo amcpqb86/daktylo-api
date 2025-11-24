@@ -36,7 +36,7 @@ class LeaderboardController extends AbstractController
 
         // défauts intelligents: duration = MIN/ASC ; wpm/score = MAX/DESC
         if (!$agg) {
-            $agg = in_array($metric, ['wpm', 'score'], true) ? 'max' : 'min';
+            $agg = in_array($metric, ['wpm', 'score', 'wordsTyped'], true) ? 'max' : 'min';
         }
         $direction = ($agg === 'min') ? 'ASC' : 'DESC';
 

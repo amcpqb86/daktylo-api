@@ -57,14 +57,14 @@ class GameSessionRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
 
-        $metric = $opts['metric'] ?? 'durationMs';           // durationMs|wpm|score
+        $metric = $opts['metric'] ?? 'durationMs';           // durationMs|wpm|score|wordsTyped
         $direction = ($opts['direction'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
         $limit = (int)($opts['limit'] ?? 100);
 
         // Champ SQL réel en base
         $metricExpr = match ($metric) {
             'wpm'   => 'gs.wpm',
-            'score' => 'gs.score',
+            'score', 'wordsTyped' => 'gs.score', // en survival, score = nombre de mots tapés
             default => 'gs.duration_ms',
         };
 
