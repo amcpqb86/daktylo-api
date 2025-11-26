@@ -47,6 +47,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: UserAchievement::class, mappedBy: 'user', orphanRemoval: true)]
     private Collection $userAchievements;
 
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $typingErrorChars = [];
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
@@ -211,6 +214,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 $userAchievement->setUser(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getTypingErrorChars(): array
+    {
+        return $this->typingErrorChars ?? [];
+    }
+
+    public function setTypingErrorChars(array $typingErrorChars): self
+    {
+        $this->typingErrorChars = $typingErrorChars;
 
         return $this;
     }

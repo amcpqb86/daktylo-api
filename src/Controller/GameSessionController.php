@@ -39,9 +39,27 @@ class GameSessionController extends AbstractController
         $score         = (int) ($data['score']         ?? 0);
         $success       = (bool)($data['success']       ?? false);
         $wikiId     = $data['wikiArticleId'] ?? null;
+        $errorsByChar  = $data['errorsByChar']  ?? [];
+
+        if (!is_array($errorsByChar)) {
+            $errorsByChar = [];
+        }
 
         $xpEarned = (int) $charsTyped;
         $user->addXp($xpEarned);
+
+        $currentErrorStats = $user->getTypingErrorChars();
+        foreach ($errorsByChar as $char => $count) {
+            if (!is_string($char)) {
+                continue;
+            }
+            $c = (int) $count;
+            if ($c <= 0) {
+                continue;
+            }
+            $currentErrorStats[$char] = ($currentErrorStats[$char] ?? 0) + $c;
+        }
+        $user->setTypingErrorChars($currentErrorStats);
 
         // si le front n'a pas envoyé la précision, on la recalcule
         if ($accuracy === null) {

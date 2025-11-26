@@ -65,6 +65,7 @@ class GameStatsController extends AbstractController
             'total_time' => $formattedTime,
             'best_wpm' => (int) $stats['bestWpm'],
             'account_created' => $user->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+            'errors_by_char' => $user->getTypingErrorChars(),
         ]);
     }
 
