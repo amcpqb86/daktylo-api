@@ -3,6 +3,7 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
 use App\Repository\GameSessionRepository;
 use App\Repository\UserRepository;
 use App\Service\LevelCalculator;
@@ -111,39 +112,100 @@ class LeaderboardController extends AbstractController
         }
     }
 
-    #[Route('/levels', name: 'api_leaderboard_levels', methods: ['GET'])]
+    // src/Controller/Api/LeaderboardController.php
+    #[Route('/global', name: 'api_leaderboard_levels', methods: ['GET'])]
     public function levels(UserRepository $userRepository, LevelCalculator $levelCalc): JsonResponse
     {
-        // On récupère tous les users triés par totalXp (SQL simple)
+        /** @var User[] $users */
         $users = $userRepository->createQueryBuilder('u')
             ->orderBy('u.totalXp', 'DESC')
             ->setMaxResults(200)
             ->getQuery()
             ->getResult();
 
-        // On reconstruit les données avec level info
-        $rows = [];
+        $levels      = [];
+        $maxWpm      = [];
+        $avgAccuracy = [];
+        $avgWpm      = [];
 
         foreach ($users as $user) {
-            $info = $levelCalc->computeLevel($user->getTotalXp());
-
-            $rows[] = [
+            $base = [
                 'id'       => $user->getId(),
                 'username' => $user->getUsername(),
-                'email' => $user->getEmail(),
-                'xp'       => $info, // level + currentXp + neededForNext
-                'totalXp'  => $user->getTotalXp(),
+                'email'    => $user->getEmail(),
             ];
+
+            // ----- LEVELS -----
+            $xpInfo = $levelCalc->computeLevel($user->getTotalXp() ?? 0);
+
+            $levels[] = $base + [
+                    'totalXp' => $user->getTotalXp(),
+                    'xp'      => $xpInfo, // level, currentXp, neededForNext
+                ];
+
+            // ----- SESSIONS STATS -----
+            $sessions = $user->getGameSessions();
+
+            $count       = 0;
+            $maxUserWpm  = null;
+            $sumWpm      = 0.0;
+            $sumAccuracy = 0.0;
+
+            foreach ($sessions as $session) {
+                /** @var \App\Entity\GameSession $session */
+                $wpm      = $session->getWpm();
+                $accuracy = $session->getAccuracy();
+
+                if ($wpm === null || $accuracy === null) {
+                    continue;
+                }
+
+                $count++;
+                $sumWpm      += $wpm;
+                $sumAccuracy += $accuracy;
+                $maxUserWpm   = $maxUserWpm === null ? $wpm : max($maxUserWpm, $wpm);
+            }
+
+            if ($count > 0) {
+                $avgWpmValue      = $sumWpm / $count;
+                $avgAccuracyValue = $sumAccuracy / $count;
+
+                $maxWpm[] = $base + [
+                        'maxWpm' => round($maxUserWpm, 2),
+                    ];
+
+                $avgWpm[] = $base + [
+                        'avgWpm' => round($avgWpmValue, 2),
+                    ];
+
+                $avgAccuracy[] = $base + [
+                        'avgAccuracy' => round($avgAccuracyValue, 2),
+                    ];
+            }
         }
 
-        // Tri final : level DESC puis currentXp DESC
-        usort($rows, function ($a, $b) {
+        // Tri niveaux : level DESC puis currentXp DESC
+        usort($levels, function (array $a, array $b) {
             if ($a['xp']['level'] === $b['xp']['level']) {
                 return $b['xp']['currentXp'] <=> $a['xp']['currentXp'];
             }
             return $b['xp']['level'] <=> $a['xp']['level'];
         });
 
-        return $this->json($rows);
+        // Tri max WPM
+        usort($maxWpm, fn(array $a, array $b) => $b['maxWpm'] <=> $a['maxWpm']);
+
+        // Tri précision moyenne
+        usort($avgAccuracy, fn(array $a, array $b) => $b['avgAccuracy'] <=> $a['avgAccuracy']);
+
+        // Tri WPM moyen
+        usort($avgWpm, fn(array $a, array $b) => $b['avgWpm'] <=> $a['avgWpm']);
+
+        return $this->json([
+            'levels'      => $levels,
+            'maxWpm'      => $maxWpm,
+            'avgAccuracy' => $avgAccuracy,
+            'avgWpm'      => $avgWpm,
+        ]);
     }
 }
