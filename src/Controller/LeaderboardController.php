@@ -4,6 +4,8 @@
 namespace App\Controller;
 
 use App\Repository\GameSessionRepository;
+use App\Repository\UserRepository;
+use App\Service\LevelCalculator;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -107,5 +109,40 @@ class LeaderboardController extends AbstractController
                 // fallback = tout (pas de borne)
                 return [null, null];
         }
+    }
+
+    #[Route('/levels', name: 'api_leaderboard_levels', methods: ['GET'])]
+    public function levels(UserRepository $userRepository, LevelCalculator $levelCalc): JsonResponse
+    {
+        // On récupère tous les users triés par totalXp (SQL simple)
+        $users = $userRepository->createQueryBuilder('u')
+            ->orderBy('u.totalXp', 'DESC')
+            ->setMaxResults(200)
+            ->getQuery()
+            ->getResult();
+
+        // On reconstruit les données avec level info
+        $rows = [];
+
+        foreach ($users as $user) {
+            $info = $levelCalc->computeLevel($user->getTotalXp());
+
+            $rows[] = [
+                'id'       => $user->getId(),
+                'username' => $user->getUsername(),
+                'xp'       => $info, // level + currentXp + neededForNext
+                'totalXp'  => $user->getTotalXp(),
+            ];
+        }
+
+        // Tri final : level DESC puis currentXp DESC
+        usort($rows, function ($a, $b) {
+            if ($a['xp']['level'] === $b['xp']['level']) {
+                return $b['xp']['currentXp'] <=> $a['xp']['currentXp'];
+            }
+            return $b['xp']['level'] <=> $a['xp']['level'];
+        });
+
+        return $this->json($rows);
     }
 }
