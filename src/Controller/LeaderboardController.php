@@ -130,6 +130,7 @@ class LeaderboardController extends AbstractController
             $rows[] = [
                 'id'       => $user->getId(),
                 'username' => $user->getUsername(),
+                'email' => $user->getEmail(),
                 'xp'       => $info, // level + currentXp + neededForNext
                 'totalXp'  => $user->getTotalXp(),
             ];
