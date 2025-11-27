@@ -18,6 +18,7 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/api/leaderboard', name: 'api_leaderboard', methods: ['GET'])]
 class LeaderboardController extends AbstractController
 {
+    #[Route('', name: 'index', methods: ['GET'])]
     public function __invoke(Request $req, GameSessionRepository $repo): JsonResponse
     {
         $mode    = $req->query->get('mode'); // ex: normal|blitz|endless|wiki|daily|letters|invite
