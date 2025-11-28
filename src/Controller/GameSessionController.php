@@ -38,14 +38,23 @@ class GameSessionController extends AbstractController
         $wpm           = (int) ($data['wpm']           ?? 0);
         $score         = (int) ($data['score']         ?? 0);
         $success       = (bool)($data['success']       ?? false);
-        $wikiId     = $data['wikiArticleId'] ?? null;
+        $wikiId        = $data['wikiArticleId'] ?? null;
         $errorsByChar  = $data['errorsByChar']  ?? [];
 
         if (!is_array($errorsByChar)) {
             $errorsByChar = [];
         }
 
-        $xpEarned = (int) $charsTyped;
+        if (in_array($mode, ['normal', 'wiki', 'daily'], true)) {
+            $xpEarned = (int) $charsTyped;
+        }
+        elseif ($mode === 'survival') {
+            $xpEarned = (int) max($wordsTyped, 0);
+        }
+        elseif ($mode === 'rain') {
+            $xpEarned = (int) max($score, 0) * 2;
+        }
+
         $user->addXp($xpEarned);
 
         $currentErrorStats = $user->getTypingErrorChars();
@@ -61,7 +70,9 @@ class GameSessionController extends AbstractController
         }
         $user->setTypingErrorChars($currentErrorStats);
 
-        // si le front n'a pas envoyé la précision, on la recalcule
+        if (!is_numeric($accuracy)) {
+            $accuracy = null;
+        }
         if ($accuracy === null) {
             if ($charsTyped > 0) {
                 $correct = max($charsTyped - $errors, 0);
@@ -103,7 +114,6 @@ class GameSessionController extends AbstractController
             $session,
             $stats
         );
-
 
         return $this->json([
             'id' => $session->getId(),
