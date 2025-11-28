@@ -157,7 +157,18 @@ class LeaderboardController extends AbstractController
                 $wpm      = $session->getWpm();
                 $accuracy = $session->getAccuracy();
 
+                // 1) ignorer les sessions sans valeurs utiles
                 if ($wpm === null || $accuracy === null) {
+                    continue;
+                }
+
+                // 2) ignorer les sessions "vides" qui plombent la moyenne
+                if ($wpm <= 0 || $accuracy <= 0) {
+                    continue;
+                }
+
+                // 3) (optionnel) ignorer les runs non reussis
+                if (method_exists($session, 'isSuccess') && !$session->isSuccess()) {
                     continue;
                 }
 
