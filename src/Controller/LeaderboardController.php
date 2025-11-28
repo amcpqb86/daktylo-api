@@ -115,7 +115,7 @@ class LeaderboardController extends AbstractController
 
     // src/Controller/Api/LeaderboardController.php
     #[Route('/global', name: 'api_leaderboard_levels', methods: ['GET'])]
-    public function levels(UserRepository $userRepository, LevelCalculator $levelCalc): JsonResponse
+    public function global(UserRepository $userRepository, LevelCalculator $levelCalc): JsonResponse
     {
         /** @var User[] $users */
         $users = $userRepository->createQueryBuilder('u')
@@ -139,10 +139,13 @@ class LeaderboardController extends AbstractController
             // ----- LEVELS -----
             $xpInfo = $levelCalc->computeLevel($user->getTotalXp() ?? 0);
 
-            $levels[] = $base + [
-                    'totalXp' => $user->getTotalXp(),
-                    'xp'      => $xpInfo, // level, currentXp, neededForNext
-                ];
+            if ($xpInfo > 0) {
+                $levels[] = $base + [
+                        'totalXp' => $user->getTotalXp(),
+                        'xp'      => $xpInfo, // level, currentXp, neededForNext
+                    ];
+            }
+
 
             // ----- SESSIONS STATS -----
             $sessions = $user->getGameSessions();
